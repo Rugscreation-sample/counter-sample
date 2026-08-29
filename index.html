@@ -624,7 +624,7 @@
 
   /* ================= photo compression ================= */
   function readAndCompress(file, maxDim, quality){
-    maxDim = maxDim || 480; quality = quality || 0.75;
+    maxDim = maxDim || 1600; quality = quality || 0.92;
     return new Promise(function(resolve, reject){
       var reader = new FileReader();
       reader.onerror = function(){ reject(new Error("Could not read this file.")); };
@@ -662,7 +662,7 @@
     var f = e.target.files[0];
     e.target.value = "";
     if (!f || !photoTarget) return;
-    readAndCompress(f, 480, 0.75).then(function(dataUrl){
+    readAndCompress(f, 1600, 0.92).then(function(dataUrl){
       onPhotoReady(photoTarget, dataUrl);
     }).catch(function(err){ toast("Could not read photo: "+(err&&err.message?err.message:err), "error"); });
   });
@@ -833,6 +833,7 @@
             : '<button class="act-btn return" data-return="'+esc(s.seal)+'" type="button">✓ Return</button>') +
           '<button class="act-btn small" data-label="'+esc(s.seal)+'" type="button">🏷 Print label</button>' +
           (currentUser ? '<button class="act-btn edit small" data-edit-start="'+esc(s.seal)+'" type="button">✎ Edit</button>' : '') +
+          (currentUser && currentUser.role==="admin" ? '<button class="act-btn delete small" data-delete="'+esc(s.seal)+'" type="button">🗑 Delete</button>' : '') +
         '</div>' +
         '<div class="section-label">History</div>' +
         historyHtml(s);
@@ -952,7 +953,7 @@
     var thumb = s.photo ? '<img src="'+s.photo+'" alt="">' : "📷";
     var main =
       '<button class="s-card-main" data-toggle-issue="'+esc(s.seal)+'" type="button">' +
-        '<span class="s-thumb">'+thumb+'</span>' +
+        '<span class="s-thumb"'+(s.photo?' data-photo-view="'+esc(s.photo)+'"':'')+'>'+thumb+'</span>' +
         '<span class="s-card-body">' +
           '<span class="s-card-top"><span class="seal-chip sm c-'+s.color+'"></span><span class="mono">'+esc(s.seal)+'</span></span>' +
           '<span class="s-card-name">'+esc(s.name)+'</span>' +
@@ -1010,7 +1011,7 @@
     return (
       '<div class="s-card '+sevClass+'">' +
         '<div class="s-card-main" style="min-height:auto;">' +
-          '<span class="s-thumb">'+thumb+'</span>' +
+          '<span class="s-thumb"'+(s.photo?' data-photo-view="'+esc(s.photo)+'"':'')+'>'+thumb+'</span>' +
           '<span class="s-card-body">' +
             '<span class="s-card-top"><span class="seal-chip sm c-'+s.color+'"></span><span class="mono">'+esc(s.seal)+'</span><span class="due-badge '+d.state+'">'+d.label+'</span></span>' +
             '<span class="s-card-name">'+esc(s.name)+'</span>' +
