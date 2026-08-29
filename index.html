@@ -310,6 +310,12 @@
   .detail-photo-row > * + *{margin-left:12px;}
   .detail-photo{width:64px; height:64px; border-radius:8px; object-fit:cover; border:1px solid var(--border-strong); flex:none;}
   .detail-photo-empty{width:64px; height:64px; border-radius:8px; background:var(--surface); border:1px dashed var(--border-strong); display:flex; align-items:center; justify-content:center; color:var(--ink-muted); font-size:20px; flex:none;}
+  .s-thumb, .detail-photo{cursor:zoom-in;}
+  .photo-lightbox{position:fixed; inset:0; background:rgba(0,0,0,.85); display:none; align-items:center; justify-content:center; z-index:200; padding:24px;}
+  .photo-lightbox.open{display:flex;}
+  .photo-lightbox img{max-width:100%; max-height:100%; border-radius:10px; box-shadow:0 10px 40px rgba(0,0,0,.5); object-fit:contain;}
+  .photo-lightbox-close{position:fixed; top:16px; right:16px; width:40px; height:40px; border-radius:50%; border:none; background:rgba(255,255,255,.15); color:#fff; display:flex; align-items:center; justify-content:center; cursor:pointer;}
+  .photo-lightbox-close:hover{background:rgba(255,255,255,.28);}
   .detail-actions{display:flex; flex-wrap:wrap; margin-top:12px;}
   .detail-actions > *{margin-right:8px; margin-top:8px;}
 
@@ -414,8 +420,7 @@
       <input id="loginPwd" type="password" autocomplete="current-password" placeholder="••••" required>
     </div>
     <p class="login-error" id="loginErr"></p>
-    <button class="login-submit" type="submit">Sign in</button>
-    <p class="login-hint">Demo logins — Admin: <b>Priyanshu</b> / <b>1234</b> · Employee: <b>Ankush</b> / <b>1234</b></p>
+    <button class="login-submit" type="submit">Sign in</button
   </form>
 </div>
 
@@ -472,6 +477,13 @@
   </div>
   <div class="qr-grid" id="qrGrid"></div>
   <button class="label-print-btn" id="lpPrint">Print label</button>
+</div>
+
+<div id="photoLightbox" class="photo-lightbox">
+  <button class="photo-lightbox-close" id="plClose" aria-label="Close" type="button">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg>
+  </button>
+  <img id="plImg" src="" alt="Sample photo">
 </div>
 
 <div id="toastRoot" aria-live="polite"></div>
@@ -790,7 +802,7 @@
 
     var main =
       '<button class="s-card-main" data-toggle-master="'+esc(s.seal)+'" type="button">' +
-        '<span class="s-thumb">'+thumb+'</span>' +
+        '<span class="s-thumb"'+(s.photo?' data-photo-view="'+esc(s.photo)+'"':'')+'>'+thumb+'</span>' +
         '<span class="s-card-body">' +
           '<span class="s-card-top"><span class="seal-chip sm c-'+s.color+'"></span><span class="mono">'+esc(s.seal)+'</span><span class="status-pill '+pillClass+'">'+pillText+'</span></span>' +
           '<span class="s-card-name">'+esc(s.name)+'</span>' +
@@ -806,7 +818,7 @@
     if (expanded && !editing){
       detail =
         '<div class="detail-photo-row">' +
-          (s.photo ? '<img class="detail-photo" src="'+s.photo+'" alt="">' : '<div class="detail-photo-empty">📷</div>') +
+          (s.photo ? '<img class="detail-photo" src="'+s.photo+'" alt="" data-photo-view="'+esc(s.photo)+'">' : '<div class="detail-photo-empty">📷</div>') +
           '<button class="act-btn small" data-photo-add="'+esc(s.seal)+'" type="button">'+(s.photo?"Replace photo":"Add photo")+'</button>' +
         '</div>' +
         '<div class="detail-row"><span class="k">PO</span><span class="v">'+esc(s.po||"—")+'</span></div>' +
@@ -820,7 +832,7 @@
             ? '<button class="act-btn issue" data-issue-from-master="'+esc(s.seal)+'" type="button">Issue</button>'
             : '<button class="act-btn return" data-return="'+esc(s.seal)+'" type="button">✓ Return</button>') +
           '<button class="act-btn small" data-label="'+esc(s.seal)+'" type="button">🏷 Print label</button>' +
-          (currentUser && currentUser.role==="admin" ? '<button class="act-btn edit small" data-edit-start="'+esc(s.seal)+'" type="button">✎ Edit</button>' : '') +
+          (currentUser ? '<button class="act-btn edit small" data-edit-start="'+esc(s.seal)+'" type="button">✎ Edit</button>' : '') +
         '</div>' +
         '<div class="section-label">History</div>' +
         historyHtml(s);
@@ -855,7 +867,7 @@
       '<div class="im-field"><label>Location</label><input id="editLoc" value="'+esc(s.location||"")+'"></div>' +
       '<div class="im-field"><label>Notes</label><textarea id="editNotes" rows="2">'+esc(s.notes||"")+'</textarea></div>' +
       '<div class="im-actions">' +
-        '<button class="act-btn delete" data-delete="'+esc(s.seal)+'" type="button">Delete</button>' +
+        (currentUser && currentUser.role==="admin" ? '<button class="act-btn delete" data-delete="'+esc(s.seal)+'" type="button">Delete</button>' : '') +
         '<button class="im-cancel" data-edit-cancel="1" type="button">Cancel</button>' +
         '<button class="im-confirm" data-edit-save="'+esc(s.seal)+'" type="button">Save changes</button>' +
       '</div>'
@@ -1171,10 +1183,19 @@
   document.getElementById("lpClose").addEventListener("click", closeLabel);
   backdrop.addEventListener("click", closeLabel);
   document.getElementById("lpPrint").addEventListener("click", function(){ window.print(); });
-  document.addEventListener("keydown", function(e){ if (e.key==="Escape") closeLabel(); });
+
+  var photoLightbox = document.getElementById("photoLightbox");
+  var plImg = document.getElementById("plImg");
+  function openPhotoView(src){ plImg.src = src; photoLightbox.classList.add("open"); }
+  function closePhotoView(){ photoLightbox.classList.remove("open"); plImg.src = ""; }
+  document.getElementById("plClose").addEventListener("click", closePhotoView);
+  photoLightbox.addEventListener("click", function(e){ if (e.target === photoLightbox) closePhotoView(); });
+  document.addEventListener("keydown", function(e){ if (e.key==="Escape"){ closeLabel(); closePhotoView(); } });
 
   /* ================= delegated events (survive re-renders) ================= */
   document.body.addEventListener("click", function(e){
+    var photoView = e.target.closest("[data-photo-view]");
+    if (photoView){ openPhotoView(photoView.getAttribute("data-photo-view")); return; }
     var navBtn = e.target.closest("[data-nav]");
     if (navBtn && currentUser){
       var opts = navBtn.getAttribute("data-nav-filter") ? {masterFilter: navBtn.getAttribute("data-nav-filter")} : null;
